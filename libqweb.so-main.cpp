@@ -21,6 +21,14 @@ public:
     QPlatformIntegration *create(const QString&, const QStringList&) override;
 };
 
+template <typename T>
+T* rgba64_pixel_data_ptr(QImage& img, int x, int y) {
+    if(Q_UNLIKELY(!img.valid(x, y))) return nullptr;
+    return reinterpret_cast<T*>(
+        img.scanLine(y) + x * sizeof(quint64)
+        );
+}
+
 QPlatformIntegration* QVncIntegrationPlugin::create(const QString& system, const QStringList& paramList)
 {
     if (!system.compare("web"_L1, Qt::CaseInsensitive)) {
@@ -55,10 +63,18 @@ QPlatformIntegration* QVncIntegrationPlugin::create(const QString& system, const
         //    void **line = reinterpret_cast<void **>(mImage.scanLine(h));
         //    std::memset(line, 0, mImage.bytesPerLine());
         //    });
+        // 使用示例
+        //if(auto* ptr = imagePixel<int*>(mImage, x, y)) {
+        //    *ptr = &valid_object;  // 确保对象生命周期足够
+        //}
         int i {0};
         for (int y = 0; y < 64; y++) {
             for(int x = 0; x < 8; x++) {
                 //*(reinterpret_cast<int **>(mImage.scanLine(y)) + x) = &i;
+                if(auto* ptr = rgba64_pixel_data_ptr<int *>(mImage, x, y)) {
+                    *ptr = &i;  // 确保对象生命周期足够
+                }
+                *(reinterpret_cast<int **>(mImage.scanLine(0)) + 0) = &i;
                 qDebug() << "Address(" << i++ << ")"
                          << reinterpret_cast<uintptr_t>(reinterpret_cast<void **>(mImage.scanLine(y)) + x)
                          << "is nullptr:"
